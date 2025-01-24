@@ -33,7 +33,7 @@ jobs:
 
     - name: Integration test
       id: integration
-      uses: ../
+      uses: ./
       with:
         report-files: tests/sample_report.json
         student-files: tests/sample_code.py
