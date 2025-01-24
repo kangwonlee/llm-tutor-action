@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+      "target": "es2020", // Or another appropriate target
+      "module": "commonjs",
+      "esModuleInterop": true,
+      "strict": true,
+      "skipLibCheck": true,
+      "outDir": "./lib",  // Output directory for compiled files
+      "rootDir": "./src",  // Root directory of your source files
+      "moduleResolution": "node",
+      "declaration": true,      
+      "forceConsistentCasingInFileNames": true,
+      "resolveJsonModule": true,
+      "sourceMap": true,      
+    },
+    "include": [
+      "src/**/*.ts" // Include all .ts files in the src directory and its subdirectories
+    ],
+    "exclude": [
+      "node_modules",
+      "tests"
+    ]
+}
