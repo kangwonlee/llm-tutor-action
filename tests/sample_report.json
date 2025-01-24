@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "outcome": "failed",
+      "nodeid": "test_foo",
+      "longrepr": {
+        "longrepr": "AssertionError: assert 1 == 2"
+      }
+    }
+  ]
+}
