@@ -1,9 +1,20 @@
-// src/ai_tutor.ts
-import { promises as fs } from 'fs';
+import { promises as fsPromises } from 'fs'; // For async operations, if needed in the future
+import * as fs from 'fs'; // For sync operations: existsSync, statSync, readFileSync
 import * as path from 'path';
 import fetch, { HeadersInit, Response } from 'node-fetch';
 
 const RESOURCE_EXHAUSTED = 429;
+
+// Interface for Gemini API response
+interface GeminiResponse {
+  candidates: Array<{
+    content: {
+      parts: Array<{
+        text: string;
+      }>;
+    };
+  }>;
+}
 
 function url(apiKey: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
@@ -37,8 +48,10 @@ async function askGemini(
     });
 
     if (response.status === 200) {
-      const result = await response.json();
-      const results = result.candidates[0].content.parts.map((part: { text: string }) => part.text);
+      const result: GeminiResponse = await response.json() as GeminiResponse;
+      const results = result.candidates[0].content.parts.map(
+        (part: { text: string }) => part.text
+      );
       answer = results.join('\n');
       break;
     } else if (response.status === RESOURCE_EXHAUSTED) {
@@ -120,7 +133,7 @@ async function collectLongreprFromMultipleReports(
 
   for (const pytestJsonReportPath of pytestJsonReportPaths) {
     console.info(`Processing report file: ${pytestJsonReportPath}`);
-    const data = JSON.parse(await fs.readFile(pytestJsonReportPath, 'utf-8'));
+    const data = JSON.parse(await fsPromises.readFile(pytestJsonReportPath, 'utf-8'));
 
     const longreprList = collectLongrepr(data);
 
@@ -164,7 +177,7 @@ function getReportFooter(explanationIn: string): string {
 async function getInstructionBlock(readmeFile: string, explanationIn = 'English'): Promise<string> {
   return (
     `## ${loadLocale(explanationIn)['instruction_start']}\n` +
-    `${await assignmentInstruction(readmeFile)}\n` +
+    `${await fsPromises.readFile(readmeFile, 'utf-8')}\n` +
     `## ${loadLocale(explanationIn)['instruction_end']}\n`
   );
 }
@@ -182,28 +195,24 @@ async function getStudentCodeBlock(studentFiles: string[], explanationIn: string
 async function assignmentCode(studentFiles: string[]): Promise<string> {
   const fileContents = await Promise.all(
     studentFiles.map(async f => {
-      const content = await fs.readFile(f, 'utf-8');
+      const content = await fsPromises.readFile(f, 'utf-8');
       return `# begin : ${path.basename(f)} ======\n${content}\n# end : ${path.basename(f)} ======\n`;
     })
   );
   return fileContents.join('\n\n');
 }
 
-async function assignmentInstruction(readmeFile: string): Promise<string> {
-  return await fs.readFile(readmeFile, 'utf-8');
-}
-
 function loadLocale(explainIn: string): Record<string, string> {
-    const localeFolder = path.join(__dirname, 'locale');
-    const localeFile = path.join(localeFolder, `${explainIn}.json`);
+  const localeFolder = path.join(__dirname, 'locale');
+  const localeFile = path.join(localeFolder, `${explainIn}.json`);
 
-    if (!fs.existsSync(localeFolder) || !fs.statSync(localeFolder).isDirectory()) {
-        throw new Error(`Locale folder not found or is not a directory: ${localeFolder}`);
-    }
+  if (!fs.existsSync(localeFolder) || !fs.statSync(localeFolder).isDirectory()) {
+    throw new Error(`Locale folder not found or is not a directory: ${localeFolder}`);
+  }
 
-    if (!fs.existsSync(localeFile) || !fs.statSync(localeFile).isFile()) {
-        throw new Error(`Locale file not found or is not a file: ${localeFile}`);
-    }
+  if (!fs.existsSync(localeFile) || !fs.statSync(localeFile).isFile()) {
+    throw new Error(`Locale file not found or is not a file: ${localeFile}`);
+  }
 
-    return JSON.parse(fs.readFileSync(localeFile, 'utf-8'));
+  return JSON.parse(fs.readFileSync(localeFile, 'utf-8'));
 }
