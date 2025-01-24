@@ -1,331 +1,93 @@
+import { run } from '../../src/main';
 import * as core from '@actions/core';
-import { promises as fs } from 'fs';
-import * as path from 'path';
-import { mocked } from 'jest-mock';
-import * as main from '../../src/main'; // Import your action's main file
-import * as glob from '@actions/glob'
-import {Response} from "node-fetch";
+import * as github from '@actions/github';
+import { generateCommentBody } from '../../src/utils/comment';
 
-// Mock the @actions/core module
-jest.mock('@actions/core');
-jest.mock('@actions/glob');
-jest.mock('fs');
-jest.mock('node-fetch');
+// Mock the GitHub Actions core library
+const mockedCore = jest.mocked(core, { shallow: true });
+const mockedGetInput = mockedCore.getInput;
+const mockedSetFailed = mockedCore.setFailed;
 
-const mockedGlob = mocked(glob, { shallow: true });
-const mockedFs = mocked(fs, { shallow: false });
-const mockedCore = mocked(core, { shallow: true });
-const mockedFetch = jest.mocked(fetch, { shallow: true });
+// Mock the GitHub Actions github library
+const mockedContext = jest.mocked(github.context, { shallow: true });
+const mockedGitHub = jest.mocked(github, { shallow: true });
 
-describe('Integration Test', () => {
-    const OLD_ENV = process.env;
+// Mock the generateCommentBody function
+jest.mock('../../src/utils/comment', () => ({
+    generateCommentBody: jest.fn(),
+}));
+
+describe('Integration Test for run() function', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        jest.resetModules();
-        process.env = { ...OLD_ENV };
-        mockedFs.readFile.mockReset();
-        mockedGlob.create.mockReset();
-    });
 
-    afterEach(() => {
-        process.env = OLD_ENV;
-    });
-
-    it('runs the action and produces the expected output', async () => {
+        // Mock GitHub context
+        mockedContext.repo = {
+            owner: 'test-owner',
+            repo: 'test-repo',
+        };
+        mockedContext.payload = {
+            pull_request: {
+                number: 123,
+            },
+        };
 
         // Mock inputs
         mockedCore.getInput.mockImplementation((name: string) => {
             switch (name) {
                 case 'report-files':
                     return 'tests/sample_report.json';
-                case 'student-files':
-                    return 'tests/sample_code.py';
-                case 'readme-path':
-                    return 'tests/sample_readme.md';
-                case 'api-key':
-                    return 'mock-api-key';
-                case 'explanation-in':
-                    return 'English';
+                case 'github-token':
+                    return 'sample-token';
+                case 'openai-api-key':
+                    return 'sample-api-key';
+                case 'llm-provider':
+                    return 'openai';
                 default:
                     return '';
             }
         });
 
-        mockedCore.getBooleanInput.mockImplementation((name: string) => {
-            switch (name) {
-                case 'fail-expected':
-                    return false;
-                default:
-                    return false;
-            }
-        });
-
-        // Mock glob to find files based on provided patterns
-        const mockGlobber = {
-            glob: jest.fn().mockResolvedValue(['tests/sample_report.json', 'tests/sample_code.py']),
-        };
-        mockedGlob.create.mockResolvedValue(mockGlobber as unknown as glob.Globber);
-
-        // Mock fs.readFile
-        const mockReportContent = JSON.stringify({
-            tests: [
-                {
-                    outcome: 'failed',
-                    nodeid: 'test_foo',
-                    longrepr: { longrepr: 'AssertionError: assert 1 == 2' },
-                },
-            ],
-        });
-        const mockCodeContent = 'def foo():\n    return 1';
-        const mockReadmeContent = 'Sample README content';
-
-        mockedFs.readFile.mockImplementation(async (filePath: string) => {
-            if (filePath === path.resolve('tests/sample_report.json')) {
-              return mockReportContent;
-            } else if (filePath === path.resolve('tests/sample_code.py')) {
-              return mockCodeContent;
-            } else if (filePath === path.resolve('tests/sample_readme.md')) {
-              return mockReadmeContent;
-            }
-            throw new Error(`File not found: ${filePath}`);
-        });
-
-        mockedFs.existsSync.mockImplementation((filePath) => {
-            // Simulate that the specified files exist
-            return [
-                path.resolve('tests/sample_report.json'),
-                path.resolve('tests/sample_code.py'),
-                path.resolve('tests/sample_readme.md')
-            ].includes(path.resolve(filePath.toString()));
-        });
-
-        // Mock the Gemini API response
-        const mockGeminiResponse = {
-            candidates: [{ content: { parts: [{ text: 'This is the feedback from Gemini.' }] } }],
-        };
-
-        mockedFetch.mockResolvedValue({
-            json: () => Promise.resolve(mockGeminiResponse),
-            status: 200,
-            text: () => Promise.resolve(JSON.stringify(mockGeminiResponse)),
-        } as Response);
-
-        // Run the action
-        await main.run();
-
-        // Assertions
-        expect(mockedCore.getInput).toHaveBeenCalledTimes(5);
-        expect(mockedCore.getInput).toHaveBeenCalledWith('report-files');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('student-files');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('readme-path');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('api-key');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('explanation-in');
-        expect(mockedGlob.create).toHaveBeenCalledWith('tests/sample_report.json\ntests/sample_code.py');
-        expect(mockedGlobber.glob).toHaveBeenCalled();
-        expect(mockedFs.readFile).toHaveBeenCalledTimes(3);
-        expect(mockedFs.readFile).toHaveBeenCalledWith(path.resolve('tests/sample_report.json'), 'utf-8');
-        expect(mockedFs.readFile).toHaveBeenCalledWith(path.resolve('tests/sample_code.py'), 'utf-8');
-        expect(mockedFs.readFile).toHaveBeenCalledWith(path.resolve('tests/sample_readme.md'), 'utf-8');
-        expect(mockedFetch).toHaveBeenCalled();
-        expect(mockedCore.info).toHaveBeenCalledWith('This is the feedback from Gemini.');
-        expect(mockedCore.setOutput).toHaveBeenCalledWith('feedback', 'This is the feedback from Gemini.');
-        expect(mockedCore.setFailed).not.toHaveBeenCalled();
+        // Assume generateCommentBody returns a static string for testing
+        (generateCommentBody as jest.Mock).mockResolvedValue('Test comment body');
     });
 
-    it('should fail when no failed tests and fail-expected is false', async () => {
-        // Mock inputs
-        mockedCore.getInput.mockImplementation((name: string) => {
-            switch (name) {
-                case 'report-files':
-                    return 'tests/sample_report.json';
-                case 'student-files':
-                    return 'tests/sample_code.py';
-                case 'readme-path':
-                    return 'tests/sample_readme.md';
-                case 'api-key':
-                    return 'mock-api-key';
-                case 'explanation-in':
-                    return 'English';
-                default:
-                    return '';
-            }
-        });
-
-        mockedCore.getBooleanInput.mockImplementation((name: string) => {
-            switch (name) {
-                case 'fail-expected':
-                    return false; // fail-expected is false
-                default:
-                    return false;
-            }
-        });
-
-        // Mock glob to find files based on provided patterns
-        const mockGlobber = {
-            glob: jest.fn().mockResolvedValue(['tests/sample_report.json', 'tests/sample_code.py']),
-        };
-        mockedGlob.create.mockResolvedValue(mockGlobber as unknown as glob.Globber);
-
-        // Mock fs.readFile
-        const mockReportContent = JSON.stringify({
-            tests: [
-                {
-                    outcome: 'passed',
-                    nodeid: 'test_foo',
+    it('should run successfully with valid inputs', async () => {
+        // Mock the Octokit (GitHub API client)
+        const mockOctokit = {
+            rest: {
+                issues: {
+                    createComment: jest.fn(),
+                    update: jest.fn(),
                 },
-            ],
-        });
-        const mockCodeContent = 'def foo():\n    return 1';
-        const mockReadmeContent = 'Sample README content';
-
-        mockedFs.readFile.mockImplementation(async (filePath: string) => {
-            if (filePath === path.resolve('tests/sample_report.json')) {
-              return mockReportContent;
-            } else if (filePath === path.resolve('tests/sample_code.py')) {
-              return mockCodeContent;
-            } else if (filePath === path.resolve('tests/sample_readme.md')) {
-              return mockReadmeContent;
-            }
-            throw new Error(`File not found: ${filePath}`);
-        });
-
-        mockedFs.existsSync.mockImplementation((filePath) => {
-            // Simulate that the specified files exist
-            return [
-                path.resolve('tests/sample_report.json'),
-                path.resolve('tests/sample_code.py'),
-                path.resolve('tests/sample_readme.md')
-            ].includes(path.resolve(filePath.toString()));
-        });
-
-        // Mock the Gemini API response
-        const mockGeminiResponse = {
-            candidates: [{ content: { parts: [{ text: 'This is the feedback from Gemini.' }] } }],
+            },
         };
+        mockedGitHub.getOctokit.mockReturnValue(mockOctokit as any);
 
-        mockedFetch.mockResolvedValue({
-            json: () => Promise.resolve(mockGeminiResponse),
-            status: 200,
-            text: () => Promise.resolve(JSON.stringify(mockGeminiResponse)),
-        } as Response);
+        await run();
 
-        // Run the action
-        await main.run();
-
-        // Assertions
-        expect(mockedCore.getInput).toHaveBeenCalledTimes(5);
-        expect(mockedCore.getInput).toHaveBeenCalledWith('report-files');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('student-files');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('readme-path');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('api-key');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('explanation-in');
-        expect(mockedGlob.create).toHaveBeenCalledWith('tests/sample_report.json\ntests/sample_code.py');
-        expect(mockedGlobber.glob).toHaveBeenCalled();
-        expect(mockedFs.readFile).toHaveBeenCalledTimes(3);
-        expect(mockedFs.readFile).toHaveBeenCalledWith(path.resolve('tests/sample_report.json'), 'utf-8');
-        expect(mockedFs.readFile).toHaveBeenCalledWith(path.resolve('tests/sample_code.py'), 'utf-8');
-        expect(mockedFs.readFile).toHaveBeenCalledWith(path.resolve('tests/sample_readme.md'), 'utf-8');
-        expect(mockedFetch).toHaveBeenCalled();
-        expect(mockedCore.info).toHaveBeenCalledWith('This is the feedback from Gemini.');
-        expect(mockedCore.setOutput).toHaveBeenCalledWith('feedback', 'This is the feedback from Gemini.');
-        expect(mockedCore.setFailed).toHaveBeenCalledWith('0 failed tests');
+        expect(mockedGetInput).toHaveBeenCalledTimes(4);
+        expect(mockedSetFailed).not.toHaveBeenCalled();
+        expect(mockOctokit.rest.issues.createComment).toHaveBeenCalledWith({
+            owner: 'test-owner',
+            repo: 'test-repo',
+            issue_number: 123,
+            body: 'Test comment body',
+        });
     });
-    it('should not fail when no failed tests and fail-expected is true', async () => {
-        // Mock inputs
-        mockedCore.getInput.mockImplementation((name: string) => {
-            switch (name) {
-                case 'report-files':
-                    return 'tests/sample_report.json';
-                case 'student-files':
-                    return 'tests/sample_code.py';
-                case 'readme-path':
-                    return 'tests/sample_readme.md';
-                case 'api-key':
-                    return 'mock-api-key';
-                case 'explanation-in':
-                    return 'English';
-                default:
-                    return '';
+
+    it('should fail gracefully when report-files input is missing', async () => {
+        mockedGetInput.mockImplementation((name: string) => {
+            if (name === 'report-files') {
+                return '';
             }
+            return 'sample-value';
         });
 
-        mockedCore.getBooleanInput.mockImplementation((name: string) => {
-            switch (name) {
-                case 'fail-expected':
-                    return true; // fail-expected is true
-                default:
-                    return false;
-            }
-        });
+        await run();
 
-        // Mock glob to find files based on provided patterns
-        const mockGlobber = {
-            glob: jest.fn().mockResolvedValue(['tests/sample_report.json', 'tests/sample_code.py']),
-        };
-        mockedGlob.create.mockResolvedValue(mockGlobber as unknown as glob.Globber);
-
-        // Mock fs.readFile
-        const mockReportContent = JSON.stringify({
-            tests: [
-                {
-                    outcome: 'passed',
-                    nodeid: 'test_foo',
-                },
-            ],
-        });
-        const mockCodeContent = 'def foo():\n    return 1';
-        const mockReadmeContent = 'Sample README content';
-
-        mockedFs.readFile.mockImplementation(async (filePath: string) => {
-            if (filePath === path.resolve('tests/sample_report.json')) {
-              return mockReportContent;
-            } else if (filePath === path.resolve('tests/sample_code.py')) {
-              return mockCodeContent;
-            } else if (filePath === path.resolve('tests/sample_readme.md')) {
-              return mockReadmeContent;
-            }
-            throw new Error(`File not found: ${filePath}`);
-        });
-
-        mockedFs.existsSync.mockImplementation((filePath) => {
-            // Simulate that the specified files exist
-            return [
-                path.resolve('tests/sample_report.json'),
-                path.resolve('tests/sample_code.py'),
-                path.resolve('tests/sample_readme.md')
-            ].includes(path.resolve(filePath.toString()));
-        });
-
-        // Mock the Gemini API response
-        const mockGeminiResponse = {
-            candidates: [{ content: { parts: [{ text: 'This is the feedback from Gemini.' }] } }],
-        };
-
-        mockedFetch.mockResolvedValue({
-            json: () => Promise.resolve(mockGeminiResponse),
-            status: 200,
-            text: () => Promise.resolve(JSON.stringify(mockGeminiResponse)),
-        } as Response);
-
-        // Run the action
-        await main.run();
-
-        // Assertions
-        expect(mockedCore.getInput).toHaveBeenCalledTimes(5);
-        expect(mockedCore.getInput).toHaveBeenCalledWith('report-files');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('student-files');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('readme-path');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('api-key');
-        expect(mockedCore.getInput).toHaveBeenCalledWith('explanation-in');
-        expect(mockedGlob.create).toHaveBeenCalledWith('tests/sample_report.json\ntests/sample_code.py');
-        expect(mockedGlobber.glob).toHaveBeenCalled();
-        expect(mockedFs.readFile).toHaveBeenCalledTimes(3);
-        expect(mockedFs.readFile).toHaveBeenCalledWith(path.resolve('tests/sample_report.json'), 'utf-8');
-        expect(mockedFs.readFile).toHaveBeenCalledWith(path.resolve('tests/sample_code.py'), 'utf-8');
-        expect(mockedFs.readFile).toHaveBeenCalledWith(path.resolve('tests/sample_readme.md'), 'utf-8');
-        expect(mockedFetch).toHaveBeenCalled();
-        expect(mockedCore.info).toHaveBeenCalledWith('This is the feedback from Gemini.');
-        expect(mockedCore.setOutput).toHaveBeenCalledWith('feedback', 'This is the feedback from Gemini.');
-        expect(mockedCore.setFailed).toHaveBeenCalledWith('No failed tests');
+        expect(mockedSetFailed).toHaveBeenCalledWith(
+            "Input required and not supplied: report-files"
+        );
     });
 });
