@@ -1,0 +1,32 @@
+# action.yml
+name: 'gemini-typescript-tutor'
+description: 'Gemini Python Tutor for Github Classroom Assignments (TypeScript Version)'
+branding:
+  icon: 'book-open'
+  color: 'green'
+inputs:
+  report-files:
+    description: 'Comma-separated list of json report file paths'
+    required: true
+    default: 'report.json'
+  api-key:
+    description: 'API token for AI'
+    required: true
+  student-files:
+    description: "Comma-separated list of student's Python file paths or a glob pattern"
+    required: false
+    default: 'exercise.py'
+  readme-path:
+    description: 'assignment instructions path'
+    required: false
+    default: 'README.md'
+  explanation-in:
+    description: 'Generate explanations in the specified language'
+    required: false
+    default: 'English'
+outputs:
+  feedback:
+    description: 'Feedback from the tutor'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

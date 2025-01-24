@@ -1,0 +1,41 @@
+// package.json
+{
+    "name": "gemini-typescript-tutor",
+    "version": "1.0.0",
+    "description": "Gemini Python Tutor for Github Classroom Assignments (TypeScript Version)",
+    "main": "lib/main.js",
+    "scripts": {
+      "build": "tsc",
+      "format": "prettier --write '**/*.ts'",
+      "format-check": "prettier --check '**/*.ts'",
+      "lint": "eslint src/**/*.ts",
+      "package": "ncc build src/main.ts -o dist",
+      "all": "npm run build && npm run format && npm run lint && npm run package"
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/your-username/gemini-typescript-tutor.git"
+    },
+    "keywords": [
+      "actions",
+      "node",
+      "github"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "dependencies": {
+      "@actions/core": "^1.10.1",
+      "@actions/glob": "^0.4.0",
+      "node-fetch": "^3.3.2"
+    },
+    "devDependencies": {
+      "@types/node": "^20.11.24",
+      "@typescript-eslint/parser": "^7.1.0",
+      "@vercel/ncc": "^0.38.1",
+      "eslint": "^8.57.0",
+      "eslint-plugin-github": "^4.10.2",
+      "prettier": "3.2.5",
+      "typescript": "^5.3.3"
+    }
+  }
+  
