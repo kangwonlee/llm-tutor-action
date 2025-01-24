@@ -1,0 +1,53 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build TypeScript
+      run: npm run build
+
+    - name: Run tests
+      run: npm run test
+
+    - name: Integration test
+      id: integration
+      uses: ../
+      with:
+        report-files: tests/sample_report.json
+        student-files: tests/sample_code.py
+        api-key: ${{ secrets.GOOGLE_API_KEY }}
+        readme-path: tests/sample_readme.md
+        explanation-in: Korean
+        fail-expected: true
+      timeout-minutes: 5
+
+    - name: Output the outputs of the integration test of the action
+      run: |
+        echo "${{ steps.integration.outputs.feedback }}"
+
+    - name: Verify integration test results
+      run: |
+        echo "feedback=${{ steps.integration.outputs.feedback }}" >> $GITHUB_OUTPUT
+        npm run test -- tests/integration/ # Assuming your integration test is in this folder
