@@ -3,6 +3,7 @@ import * as github from '@actions/github';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
+import fetch from 'node-fetch'; // Import fetch
 
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
@@ -10,9 +11,9 @@ const writeFileAsync = promisify(fs.writeFile);
 async function run(): Promise<void> {
   try {
     // Get inputs
-    const reportFiles: string = core.getMultilineInput('report-files');
+    const reportFiles: string[] = core.getMultilineInput('report-files');
     const apiKey: string = core.getInput('api-key');
-    const studentFiles: string = core.getMultilineInput('student-files');
+    const studentFiles: string[] = core.getMultilineInput('student-files');
     const readmePath: string = core.getInput('readme-path');
     const model: string = core.getInput('model') || 'gemini-1.5-flash-latest';
     const explanationIn: string = core.getInput('explanation-in') || 'English';
@@ -57,31 +58,31 @@ async function run(): Promise<void> {
   }
 }
 
-export async function collectLongreprFromMultipleReports(reportPaths: string, explanationIn: string): Promise<string> {
-  let questions: string = '';
+export async function collectLongreprFromMultipleReports(reportPaths: string[], explanationIn: string): Promise<string> {
+  let questions: string[] = [];
 
   for (const reportPath of reportPaths) {
     core.info(`Processing report file: ${reportPath}`);
     const data: any = JSON.parse(await readFileAsync(reportPath, 'utf-8'));
-    const longreprList: string = collectLongrepr(data);
-    questions = questions.concat(longreprList);
+    const longreprList: string[] = collectLongrepr(data);
+    questions.push(...longreprList);
   }
 
   if (questions.length) {
-    questions.unshift(getReportHeader(explanationIn));
-    questions.push(getReportFooter(explanationIn));
+    questions.unshift(getReportHeader(explanationIn)); // line 71
+    questions.push(getReportFooter(explanationIn)); // line 72
   }
 
-  return questions;
+  return questions.join('');
 }
 
-export function collectLongrepr(data: any): string {
-  const longreprList: string = '';
+export function collectLongrepr(data: any): string[] {
+  const longreprList: string[] = [];
   for (const test of data.tests) {
     if (test.outcome!== 'passed') {
       for (const key in test) {
         if (typeof test[key] === 'object' && 'longrepr' in test[key]) {
-          longreprList.push(`${test.outcome}:${key}:${test[key].longrepr}`);
+          longreprList.push(`${test.outcome}:${key}:${test[key].longrepr}`);  // line 84
         }
       }
     }
@@ -91,7 +92,7 @@ export function collectLongrepr(data: any): string {
 
 export function getPrompt(
   pytestLongreprList: string,
-  studentFiles: string,
+  studentFiles: string[],
   readmePath: string,
   explanationIn: string,
 ): string {
@@ -99,7 +100,7 @@ export function getPrompt(
   ? `${getDirective(explanationIn)}\nPlease generate comments mutually exclusive and collectively exhaustive for the following failed test cases.`
   : `In ${explanationIn}, please comment on the student code given the assignment instruction.`;
 
-  const promptList: string = [
+  const promptList: string[] = [
     initialInstruction,
     getInstructionBlock(readmePath, explanationIn),
     getStudentCodeBlock(studentFiles, explanationIn),
@@ -126,7 +127,7 @@ export function getInstructionBlock(readmePath: string, explanationIn: string): 
   return `## ${loadLocale(explanationIn).instruction_start}\n${assignmentInstruction(readmeContent)}\n## ${loadLocale(explanationIn).instruction_end}\n`;
 }
 
-export function getStudentCodeBlock(studentFiles: string, explanationIn: string): string {
+export function getStudentCodeBlock(studentFiles: string[], explanationIn: string): string {
   const studentCode: string = studentFiles
   .map((file) => {
       const content: string = fs.readFileSync(file, 'utf-8');
@@ -145,7 +146,7 @@ export function assignmentInstruction(
     `(${commonContentStartMarker}\\s*.*?\\s*${commonContentEndMarker})`,
     'is',
   );
-  const foundList: string = readmeContent.match(pattern) || '';
+  const foundList: string[] = readmeContent.match(pattern) || []; // line 148
 
   let instruction: string = readmeContent;
   if (!foundList.length) {
@@ -185,7 +186,7 @@ export async function askGemini(question: string, apiKey: string, model: string)
 
   core.info('Parsing response...');
   const result: any = await response.json();
-  const results: string = result.candidates.content.parts.map((part: any) => part.text);
+  const results: string[] = result.candidates.content.parts.map((part: any) => part.text);
   return results.join('\n');
 }
 
