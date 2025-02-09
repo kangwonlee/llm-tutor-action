@@ -58,7 +58,7 @@ async function run(): Promise<void> {
 }
 
 async function collectLongreprFromMultipleReports(reportPaths: string, explanationIn: string): Promise<string> {
-  let questions: string =;
+  let questions: string = '';
 
   for (const reportPath of reportPaths) {
     core.info(`Processing report file: ${reportPath}`);
@@ -76,7 +76,7 @@ async function collectLongreprFromMultipleReports(reportPaths: string, explanati
 }
 
 function collectLongrepr(data: any): string {
-  const longreprList: string =;
+  const longreprList: string = '';
   for (const test of data.tests) {
     if (test.outcome!== 'passed') {
       for (const key in test) {
@@ -145,7 +145,7 @@ function assignmentInstruction(
     `(${commonContentStartMarker}\\s*.*?\\s*${commonContentEndMarker})`,
     'is',
   );
-  const foundList: string = readmeContent.match(pattern) ||;
+  const foundList: string = readmeContent.match(pattern) || '';
 
   let instruction: string = readmeContent;
   if (!foundList.length) {
