@@ -1,0 +1,64 @@
+name: Build and Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check TypeScript version
+        run: tsc --version
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Integration test
+        id: integration
+        uses: ./
+        with:
+          report-files: tests/sample_report.json
+          student-files: tests/sample_code.py
+          api-key: ${{ secrets.GOOGLE_API_KEY }}
+          readme-path: tests/sample_readme.md
+          explanation-in: Korean
+          fail-expected: true
+        timeout-minutes: 5
+  
+      - name: Output the outputs of the integration test of the action
+        run: |
+          echo "${{ steps.integration.outputs.feedback }}"
+  
+      - name: Verify integration test results
+        run: |
+          echo "feedback=${{ steps.integration.outputs.feedback }}" >> $GITHUB_OUTPUT
+          npm run test -- tests/integration/ # Assuming your integration test is in this folder
+  
+      - name: upload artifacts
+        id: artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: artifacts
+          path: |
+            ./*.png
+            ./*.json
+            ./*.lock
+          retention-days: 7
+          overwrite: true
