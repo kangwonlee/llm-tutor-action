@@ -57,7 +57,7 @@ async function run(): Promise<void> {
   }
 }
 
-async function collectLongreprFromMultipleReports(reportPaths: string, explanationIn: string): Promise<string> {
+export async function collectLongreprFromMultipleReports(reportPaths: string, explanationIn: string): Promise<string> {
   let questions: string = '';
 
   for (const reportPath of reportPaths) {
@@ -75,7 +75,7 @@ async function collectLongreprFromMultipleReports(reportPaths: string, explanati
   return questions;
 }
 
-function collectLongrepr(data: any): string {
+export function collectLongrepr(data: any): string {
   const longreprList: string = '';
   for (const test of data.tests) {
     if (test.outcome!== 'passed') {
@@ -89,7 +89,7 @@ function collectLongrepr(data: any): string {
   return longreprList;
 }
 
-function getPrompt(
+export function getPrompt(
   pytestLongreprList: string,
   studentFiles: string,
   readmePath: string,
@@ -109,24 +109,24 @@ function getPrompt(
   return promptList.join('\n\n');
 }
 
-function getDirective(explanationIn: string): string {
+export function getDirective(explanationIn: string): string {
   return `${loadLocale(explanationIn).directive}\n`;
 }
 
-function getReportHeader(explanationIn: string): string {
+export function getReportHeader(explanationIn: string): string {
   return `## ${loadLocale(explanationIn).report_header}\n`;
 }
 
-function getReportFooter(explanationIn: string): string {
+export function getReportFooter(explanationIn: string): string {
   return `## ${loadLocale(explanationIn).report_footer}\n`;
 }
 
-function getInstructionBlock(readmePath: string, explanationIn: string): string {
+export function getInstructionBlock(readmePath: string, explanationIn: string): string {
   const readmeContent: string = fs.readFileSync(readmePath, 'utf-8');
   return `## ${loadLocale(explanationIn).instruction_start}\n${assignmentInstruction(readmeContent)}\n## ${loadLocale(explanationIn).instruction_end}\n`;
 }
 
-function getStudentCodeBlock(studentFiles: string, explanationIn: string): string {
+export function getStudentCodeBlock(studentFiles: string, explanationIn: string): string {
   const studentCode: string = studentFiles
   .map((file) => {
       const content: string = fs.readFileSync(file, 'utf-8');
@@ -136,7 +136,7 @@ function getStudentCodeBlock(studentFiles: string, explanationIn: string): strin
   return `\n\n##### Start mutable code block\n## ${loadLocale(explanationIn).homework_start}\n${studentCode}\n## ${loadLocale(explanationIn).homework_end}\n##### End mutable code block\n`;
 }
 
-function assignmentInstruction(
+export function assignmentInstruction(
   readmeContent: string,
   commonContentStartMarker: string = '``From here is common to all assignments.``',
   commonContentEndMarker: string = '``Until here is common to all assignments.``',
@@ -161,13 +161,13 @@ function assignmentInstruction(
   return instruction;
 }
 
-function loadLocale(language: string): any {
+export function loadLocale(language: string): any {
   const localePath: string = path.join(__dirname, 'locale', `${language}.json`);
   const localeContent: string = fs.readFileSync(localePath, 'utf-8');
   return JSON.parse(localeContent);
 }
 
-async function askGemini(question: string, apiKey: string, model: string): Promise<string> {
+export async function askGemini(question: string, apiKey: string, model: string): Promise<string> {
   const url: string = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const headers: any = { 'Content-Type': 'application/json' };
   const data: any = { contents: [{ parts: [{ text: question }] }] };
